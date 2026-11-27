@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#17433a">
+<title>Имущество ЦОД Пахра</title>
+<style>
+:root{--bg:#f3f5f4;--card:#fff;--text:#17201d;--muted:#5d6a66;--line:#d9dfdc;--accent:#17695a;--on:#fff;--head:#17433a}
+@media (prefers-color-scheme:dark){:root{--bg:#111614;--card:#1b2220;--text:#e7edea;--muted:#9aa8a3;--line:#303a37;--accent:#4fb8a1;--on:#08201a;--head:#12312a}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:10px 14px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--on);font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+#scan{white-space:nowrap}
+input,select{width:100%;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+header{position:sticky;top:0;z-index:2;background:var(--head);color:#fff;padding:10px 16px}
+.wrap{max-width:980px;margin:0 auto}
+.top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.top b{flex:1}
+.top small{opacity:.75}
+.top button{background:transparent;color:#fff;border-color:rgba(255,255,255,.35);padding:6px 10px;font-size:14px}
+.search{display:flex;gap:8px}
+.search input{border:0}
+main{padding:12px 16px 90px}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chips button{border-radius:99px;padding:5px 12px;font-size:14px}
+.chips button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on)}
+.count{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:14px;margin:8px 0}
+.count button{padding:4px 10px;font-size:14px}
+#list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px}
+.item{text-align:left;display:block;width:100%}
+.item .t{display:flex;justify-content:space-between;gap:8px;font-weight:600}
+.item .s{color:var(--muted);font-size:14px;overflow-wrap:anywhere}
+.badge{font-size:12px;font-weight:600;white-space:nowrap;border-radius:99px;padding:2px 8px;border:1px solid currentColor;align-self:flex-start}
+.b-ok{color:var(--accent)}.b-work{color:#3b82c4}.b-fix{color:#c07a12}.b-bad{color:#d0453a}.b-other{color:var(--muted)}
+#more{display:block;margin:12px auto}
+#add{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:2}
+dialog{width:min(560px,calc(100% - 24px));max-height:90dvh;border:1px solid var(--line);border-radius:16px;background:var(--bg);color:var(--text);padding:16px;overflow:auto}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+dialog h2{margin:0 0 12px;font-size:19px}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:10px}
+label input,label select{margin-top:3px;font-size:16px;color:var(--text)}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0 0 12px}
+dt{color:var(--muted);font-size:14px}dd{margin:0;overflow-wrap:anywhere}
+.actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px}
+.error{color:#d0453a;margin:8px 0;min-height:1.4em}
+#login{max-width:360px;margin:60px auto;padding:0 16px}
+#reader{width:100%;min-height:240px;background:#000;border-radius:12px;overflow:hidden}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;z-index:5;max-width:90%}
+</style>
+</head>
+<body>
+
+<form id="login" hidden>
+  <h1>Имущество ЦОД Пахра</h1>
+  <label>Код доступа<input id="code" autocomplete="off" autocapitalize="off" spellcheck="false" required></label>
+  <button class="primary">Войти</button>
+  <div class="error" id="loginError" role="alert"></div>
+</form>
+
+<div id="app" hidden>
+  <header><div class="wrap">
+    <div class="top"><b>Имущество</b><small id="who"></small>
+      <button id="refresh" type="button">Обновить</button><button id="logout" type="button">Выйти</button></div>
+    <div class="search">
+      <input id="q" type="search" placeholder="Название, серийник, QR…" aria-label="Поиск">
+      <button id="scan" class="primary" type="button">Скан QR</button>
+    </div>
+  </div></header>
+  <main class="wrap">
+    <div class="filters" id="filters"></div>
+    <div class="chips" id="chips"></div>
+    <div class="count"><span id="count"></span><button id="reset" type="button">Сбросить</button></div>
+    <div id="list"></div>
+    <button id="more" type="button">Показать ещё</button>
+  </main>
+  <button id="add" class="primary" type="button">+ Добавить</button>
+</div>
+
+<dialog id="card"></dialog>
+<dialog id="scanner">
+  <h2>Наведите камеру на код</h2>
+  <div id="reader"></div>
+  <div class="error" id="scanError" role="alert"></div>
+  <label>Или снимите фото кода<input id="photo" type="file" accept="image/*" capture="environment"></label>
+  <div class="actions"><button id="scanClose" type="button">Закрыть</button></div>
+</dialog>
+<div id="toast" role="status" hidden></div>
+
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const F = {kind:'Вид имущества',desc:'Описание имущества',brand:'Бренд',qr:'Номер QR кода',serial:'Серийный номер',
+  hold:'СТАТУС',state:'Состояние',place:'Место нахождение',user:'Пользователь',num:'Номер на имуществе'};
+const FILTERS = [[F.kind,'Вид'],[F.state,'Состояние'],[F.place,'Место'],[F.user,'Кто'],[F.brand,'Бренд']];
+const STATES = ['Рабочее','В работе','Ремонт','Сломан','Перемещение','Неизвестно'];
+const QUICK = [F.state,F.place,F.user];
+const CHIPS = {
+  hold:['Удержание', i => !!i[F.hold]],
+  noqr:['Без QR', i => !i[F.qr]],
+  dup:['Дубли QR', i => i[F.qr] && qrCount[norm(i[F.qr])] > 1]
+};
+const PAGE = 60;
+let items = [], fields = [], me = null, code = '', chip = '', limit = PAGE, qrCount = {}, scanner = null, session = 0;
+
+const store = {
+  get(){ try { return localStorage.getItem('inv-code') || ''; } catch(e) { return ''; } },
+  set(v){ try { v ? localStorage.setItem('inv-code', v) : localStorage.removeItem('inv-code'); } catch(e) {} }
+};
+
+/* Русские буквы, похожие на латинские, считаем одинаковыми: «а48601» = «a48601» */
+const LOOK = {'а':'a','в':'b','е':'e','к':'k','м':'m','н':'h','о':'o','р':'p','с':'c','т':'t','у':'y','х':'x'};
+const lower = s => String(s || '').toLowerCase().replace(/ё/g,'е');
+const norm = s => lower(s).replace(/[авекмнорстух]/g, c => LOOK[c]).replace(/\s+/g,'');
+
+function el(tag, props, ...children){
+  const n = document.createElement(tag);
+  Object.assign(n, props || {});
+  n.append(...children.filter(c => c !== null && c !== undefined && c !== false));
+  return n;
+}
+
+async function api(body){
+  if (!window.API_URL) throw new Error('Не указан адрес скрипта в файле config.js');
+  let data;
+  try {
+    // text/plain: без предварительного CORS-запроса, который Apps Script не принимает
+    const r = await fetch(window.API_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify(Object.assign({code}, body))});
+    data = await r.json();
+  } catch(e) { throw new Error('Нет связи с таблицей. Проверьте интернет и настройку скрипта.'); }
+  if (!data.ok) throw new Error(data.error === 'auth' ? 'auth' : data.error);
+  return data;
+}
+
+function toast(text){
+  const t = $('toast'); t.textContent = text; t.hidden = false;
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.hidden = true, 3500);
+}
+
+function showLogin(message){
+  session++; items = []; me = null; code = ''; store.set('');
+  closeScanner(); $('card').close();
+  $('app').hidden = true; $('login').hidden = false; $('loginError').textContent = message || '';
+}
+
+async function load(){
+  const mine = session;
+  $('refresh').disabled = true;
+  try {
+    const data = await api({action:'list'});
+    if (mine !== session) return false;
+    items = data.items; fields = data.fields; me = data.user;
+    store.set(code);
+    $('login').hidden = true; $('app').hidden = false;
+    $('who').textContent = me.name;
+    $('add').hidden = me.role !== 'edit';
+    index(); buildFilters(); render();
+    return true;
+  } catch(e) {
+    if (mine !== session) return false;
+    if (e.message === 'auth') showLogin('Неверный код доступа');
+    else if (!me) { $('login').hidden = false; $('loginError').textContent = e.message; }
+    else toast(e.message);
+    return false;
+  } finally { $('refresh').disabled = false; }
+}
+
+function index(){
+  qrCount = {};
+  items.forEach(i => { const k = norm(i[F.qr]); if (k) qrCount[k] = (qrCount[k] || 0) + 1; });
+}
+
+const values = field => {
+  const set = new Set(field === F.state ? STATES : []);
+  items.forEach(i => { if (i[field]) set.add(i[field]); });
+  return [...set].sort((a,b) => a.localeCompare(b,'ru'));
+};
+
+function buildFilters(){
+  const box = $('filters');
+  const old = {}; box.querySelectorAll('select').forEach(s => old[s.dataset.field] = s.value);
+  box.replaceChildren(...FILTERS.map(([field,title]) => {
+    const s = el('select', {onchange(){ limit = PAGE; render(); }});
+    s.dataset.field = field; s.setAttribute('aria-label', title);
+    s.append(new Option(title + ': все', ''));
+    values(field).forEach(v => s.append(new Option(v, v)));
+    if (items.some(i => !i[field])) s.append(new Option('(не указано)', '\u0000'));
+    s.value = old[field] || ''; if (s.selectedIndex < 0) s.value = '';
+    return s;
+  }));
+}
+
+function filtered(){
+  const words = lower($('q').value).split(/\s+/).filter(Boolean);
+  const selected = [...$('filters').querySelectorAll('select')].filter(s => s.value);
+  return items.filter(i => {
+    if (selected.some(s => i[s.dataset.field] !== (s.value === '\u0000' ? '' : s.value))) return false;
+    if (chip && !CHIPS[chip][1](i)) return false;
+    if (!words.length) return true;
+    const text = lower([i[F.kind],i[F.brand],i[F.desc],i[F.qr],i[F.serial],i[F.num],i[F.user],i[F.place]].join(' '));
+    const codes = [i[F.qr],i[F.serial],i[F.num]].map(norm);
+    const whole = norm(words.join(''));
+    if (codes.some(c => c.includes(whole))) return true;
+    return words.every(w => text.includes(w) || codes.some(c => c.includes(norm(w))));
+  });
+}
+
+function badge(state){
+  const cls = {'Рабочее':'b-ok','В работе':'b-work','Ремонт':'b-fix','Сломан':'b-bad'}[state] || 'b-other';
+  return el('span', {className:'badge ' + cls, textContent: state || 'Не указано'});
+}
+
+function render(){
+  $('chips').replaceChildren(...Object.entries(CHIPS).map(([key,[title,test]]) => {
+    const b = el('button', {type:'button', textContent: title + ' · ' + items.filter(test).length,
+      onclick(){ chip = chip === key ? '' : key; limit = PAGE; render(); }});
+    b.setAttribute('aria-pressed', chip === key);
+    return b;
+  }));
+  const found = filtered();
+  $('count').textContent = 'Найдено: ' + found.length + ' из ' + items.length;
+  $('list').replaceChildren(...found.slice(0, limit).map(i => el('button', {type:'button', className:'item', onclick(){ openCard(i); }},
+    el('div', {className:'t'}, el('span', {textContent: [i[F.kind] || 'Без названия', i[F.brand], i[F.desc]].filter(Boolean).join(' ')}), badge(i[F.state])),
+    el('div', {className:'s', textContent: 'QR ' + (i[F.qr] || '—') + ' · S/N ' + (i[F.serial] || '—')}),
+    el('div', {className:'s', textContent: [i[F.place], i[F.user], i[F.hold]].filter(Boolean).join(' · ') || 'Место не указано'})
+  )));
+  $('more').hidden = found.length <= limit;
+}
+
+/* ---------- Карточка ---------- */
+function openCard(item){
+  const d = $('card');
+  const title = el('h2', {textContent: [item[F.kind], item[F.brand]].filter(Boolean).join(' ') + ' · № ' + item.id});
+  const list = el('dl', {}, ...fields.flatMap(f => [el('dt',{textContent:f}), el('dd',{textContent:item[f] || '—'})]));
+  const actions = el('div', {className:'actions'}, el('button', {type:'button', textContent:'Закрыть', onclick(){ d.close(); }}));
+  if (me.role === 'edit') {
+    actions.append(
+      el('button', {type:'button', textContent:'Все поля', onclick(){ openForm(item, fields); }}),
+      el('button', {type:'button', className:'primary', textContent:'Состояние и место', onclick(){ openForm(item, QUICK); }}));
+  }
+  d.replaceChildren(title, list, actions);
+  if (!d.open) d.showModal();
+}
+
+function openForm(item, names){
+  const d = $('card'), isNew = !item;
+  const inputs = {};
+  const rows = names.map((f, n) => {
+    const input = el('input', {value: item ? item[f] : '', maxLength: 500});
+    input.name = f; inputs[f] = input;
+    const row = el('label', {textContent: f}, input);
+    if ([F.kind,F.brand,F.state,F.place,F.user,F.hold].includes(f)) {
+      // выпадающий список с возможностью ввести новое значение
+      const select = el('select', {onchange(){
+        input.hidden = select.value !== '\u0001';
+        input.value = select.value === '\u0001' ? '' : select.value;
+        if (!input.hidden) input.focus();
+      }});
+      select.append(new Option('— не указано —', ''));
+      values(f).forEach(v => select.append(new Option(v, v)));
+      select.append(new Option('Другое…', '\u0001'));
+      select.value = input.value; input.hidden = true;
+      row.insertBefore(select, input);
+    }
+    return row;
+  });
+  const error = el('div', {className:'error'}); error.setAttribute('role','alert');
+  const save = el('button', {className:'primary', textContent:'Сохранить'});
+  const form = el('form', {}, ...rows, error, el('div', {className:'actions'},
+    el('button', {type:'button', textContent:'Отмена', onclick(){ isNew ? d.close() : openCard(item); }}), save));
+  form.onsubmit = async ev => {
+    ev.preventDefault();
+    const changes = {}, before = {};
+    names.forEach(f => {
+      const v = inputs[f].value.trim();
+      if (isNew || v !== item[f]) { changes[f] = v; if (item) before[f] = item[f]; }
+    });
+    if (!isNew && !Object.keys(changes).length) return openCard(item);
+    const mine = session;
+    save.disabled = true; error.textContent = '';
+    try {
+      const data = await api(isNew ? {action:'add', changes} : {action:'update', id:item.id, changes, before});
+      if (mine !== session) return;
+      if (isNew) items.push(data.item); else Object.assign(item, data.item);
+      index(); buildFilters(); render();
+      openCard(isNew ? data.item : item);
+      toast('Сохранено');
+    } catch(e) {
+      if (e.message === 'auth') return showLogin('Код больше не действует');
+      error.textContent = e.message; save.disabled = false;
+    }
+  };
+  d.replaceChildren(el('h2', {textContent: isNew ? 'Новая позиция' : 'Изменить № ' + item.id}), form);
+  if (!d.open) d.showModal();
+}
+
+/* ---------- Сканер ---------- */
+function onScan(text){
+  const raw = String(text).trim();
+  // В коде может быть сам номер или ссылка, в которой номер стоит отдельной частью
+  const parts = [raw, ...raw.split(/[\/?&=#;,\s]+/).reverse()].map(norm).filter(Boolean);
+  let found = [];
+  for (const field of [F.qr, F.serial, F.num]) {
+    for (const p of parts) {
+      found = items.filter(i => norm(i[field]) === p);
+      if (found.length) break;
+    }
+    if (found.length) break;
+  }
+  closeScanner();
+  resetFilters();
+  if (found.length === 1) { $('q').value = ''; render(); openCard(found[0]); return; }
+  $('q').value = found.length ? found[0][F.qr] || raw : raw;
+  render();
+  toast(found.length ? 'Найдено несколько позиций с этим кодом' : 'Код не найден: ' + raw.slice(0,80));
+}
+
+async function openScanner(){
+  $('scanError').textContent = '';
+  $('scanner').showModal();
+  if (!window.Html5Qrcode) { $('scanError').textContent = 'Сканер не загрузился. Проверьте интернет и обновите страницу.'; return; }
+  const current = new Html5Qrcode('reader'); scanner = current;
+  let done = false;
+  current.startPromise = current.start({facingMode:'environment'}, {fps:10},
+    text => { if (!done && scanner === current) { done = true; onScan(text); } }, () => {});
+  try { await current.startPromise; }
+  catch(e) { if (scanner === current) $('scanError').textContent = 'Камера недоступна. Разрешите доступ к камере в браузере или снимите фото кода.'; }
+}
+
+async function stopCamera(s){
+  try { await s.startPromise; await s.stop(); s.clear(); } catch(e) {}
+}
+
+function closeScanner(){
+  const s = scanner; scanner = null;
+  if (s) stopCamera(s);
+  if ($('scanner').open) $('scanner').close();
+}
+
+$('photo').onchange = async ev => {
+  const file = ev.target.files[0]; ev.target.value = '';
+  if (!file || !window.Html5Qrcode) return;
+  const s = scanner; scanner = null;
+  if (s) await stopCamera(s);
+  try { onScan(await new Html5Qrcode('reader').scanFile(file, false)); }
+  catch(e) { $('scanError').textContent = 'На фото код не распознан. Снимите ближе и ровнее.'; }
+};
+
+/* ---------- Кнопки ---------- */
+function resetFilters(){
+  $('filters').querySelectorAll('select').forEach(s => s.value = '');
+  chip = ''; limit = PAGE;
+}
+$('login').onsubmit = ev => { ev.preventDefault(); code = $('code').value.trim().toLowerCase(); $('code').value = ''; $('loginError').textContent = 'Проверяю…'; load(); };
+$('q').oninput = () => { limit = PAGE; render(); };
+$('reset').onclick = () => { $('q').value = ''; resetFilters(); render(); };
+$('more').onclick = () => { limit += PAGE; render(); };
+$('refresh').onclick = async () => { if (await load()) toast('Список обновлён'); };
+$('logout').onclick = () => showLogin();
+$('add').onclick = () => openForm(null, fields);
+$('scan').onclick = openScanner;
+$('scanClose').onclick = closeScanner;
+$('scanner').addEventListener('cancel', ev => { ev.preventDefault(); closeScanner(); });
+
+code = store.get();
+if (code) load(); else $('login').hidden = false;
+</script>
+</body>
+</html>
